@@ -52,7 +52,7 @@ const IMAGE_CONFIG: ImageItem[] = [
 
 // 辅助函数：根据图片路径获取配置
 const getImageConfig = (src: string): ImageItem => {
-  return IMAGE_CONFIG.find(item => item.src === src) || { src, text: '' }
+  return IMAGE_CONFIG.find(item => item.src === src) || { src, text: '', video: '' }
 }
 
 // 打字机效果组件
@@ -142,7 +142,7 @@ function FeatureFlipCard({
 }) {
   const [showVideo, setShowVideo] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [videoReady, setVideoReady] = useState(false)
+  const [_videoReady, setVideoReady] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRef = useRef<HTMLDivElement>(null)
   
@@ -560,7 +560,6 @@ function App() {
 
   useEffect(() => {
     let tl: gsap.core.Timeline | null = null
-    let floatTl: gsap.core.Timeline | null = null
 
     const timer = setTimeout(() => {
       const movieEls = movieLettersRef.current.filter(Boolean) as HTMLSpanElement[]
@@ -657,7 +656,6 @@ function App() {
     return () => {
       clearTimeout(timer)
       if (tl) tl.kill()
-      if (floatTl) floatTl.kill()
     }
   }, [])
 
