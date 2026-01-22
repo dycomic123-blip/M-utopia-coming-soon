@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Modernist Design System
+ * "Less, but better." — Dieter Rams
+ */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper antialiased;
+    color: #0A0A0A;
+    font-family: "Helvetica Neue", Helvetica, Inter, Arial, sans-serif;
+  }
+
+  /* Typography - Swiss Style */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+    color: #0A0A0A;
+  }
+
+  p {
+    @apply text-base leading-relaxed;
+  }
+
+  a {
+    color: #0A0A0A;
+    @apply transition-colors duration-200;
+  }
+
+  a:hover {
+    color: #6B6B6B;
+  }
+
+  /* Selection - Vignelli Red */
+  ::selection {
+    background: #E63946;
+    color: white;
+  }
+
+  /* Focus states */
+  :focus-visible {
+    @apply outline-none ring-1 ring-offset-2;
+    --tw-ring-color: #0A0A0A;
+  }
+}
+
+@layer components {
+  /* Container - 12 Column Grid */
+  .container-grid {
+    @apply max-w-grid mx-auto px-6;
+  }
+
+  /* Section spacing - Golden Ratio */
+  .section {
+    @apply py-22;
+  }
+
+  /* Swiss Navigation Link */
+  .nav-link {
+    @apply text-xs font-medium uppercase transition-colors duration-200;
+    letter-spacing: 0.05em;
+    color: #6B6B6B;
+  }
+
+  .nav-link:hover,
+  .nav-link.active {
+    color: #0A0A0A;
+  }
+
+  /* Horizontal Rule - Grid Line */
+  .divider {
+    border-top: 1px solid #E5E5E5;
+  }
+
+  /* Card - Pure Surface */
+  .card {
+    background: white;
+    border: 1px solid #E5E5E5;
+    @apply p-8;
+  }
+}
+
+@layer utilities {
+  /* Display Typography - 4x size */
+  .text-display {
+    @apply font-bold tracking-tight leading-tight;
+    font-size: 12rem;    /* 4x of 3rem (text-5xl) */
+  }
+  @media (min-width: 768px) {
+    .text-display {
+      font-size: 15rem;  /* 4x of 3.75rem (text-6xl) */
+    }
+  }
+  @media (min-width: 1024px) {
+    .text-display {
+      font-size: 18rem;    /* 4x of 4.5rem (text-7xl) */
+    }
+  }
+
+  /* Swiss Uppercase - 4x size */
+  .swiss-caps {
+    @apply font-medium uppercase;
+    font-size: 3rem;  /* 4x of 0.75rem (text-xs) */
+    letter-spacing: 0.05em;
+  }
+
+  /* Accent text (use sparingly) */
+  .text-accent-red {
+    color: #E63946;
+  }
+
+  /* Functional hover state */
+  .hover-fade {
+    @apply transition-opacity duration-200;
+  }
+
+  .hover-fade:hover {
+    @apply opacity-80;
+  }
+}

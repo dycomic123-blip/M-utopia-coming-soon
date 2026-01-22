@@ -1,0 +1,70 @@
+/**
+ * Modernist Animations
+ * 
+ * Principles (Dieter Rams):
+ * - Animation must be meaningful
+ * - Short duration, natural easing
+ * - Consistent across the site
+ * 
+ * Allowed: opacity, color transitions, subtle translateY
+ * Forbidden: scale, rotate, bounce, complex multi-stage, infinite loops
+ */
+
+/* Standard Easing Functions */
+:root {
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-sm: 150ms;
+  --duration-md: 200ms;
+  --duration-lg: 300ms;
+}
+
+/* Fade In - For scroll reveal */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Slide Up - For scroll reveal (subtle, max 8px) */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animation Classes - One-time only, no infinite */
+.animate-fade-in {
+  animation: fadeIn var(--duration-lg) var(--ease-out) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--duration-lg) var(--ease-out) forwards;
+}
+
+/* Staggered Animation Delays - For grid items */
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 50ms; }
+.stagger-3 { animation-delay: 100ms; }
+.stagger-4 { animation-delay: 150ms; }
+.stagger-5 { animation-delay: 200ms; }
+.stagger-6 { animation-delay: 250ms; }
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
