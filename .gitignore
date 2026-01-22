@@ -1,6 +1,3 @@
-# Large video files (exceed GitHub 100MB limit)
-public/assets/videos/28.mp4
-
 # Logs
 logs
 *.log
