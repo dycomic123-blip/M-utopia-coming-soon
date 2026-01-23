@@ -278,7 +278,7 @@ const heroStyles = `
   }
   .video-wall-item img {
     transition: filter 0.4s ease, transform 0.3s ease;
-    filter: grayscale(1) brightness(0.75);
+    filter: grayscale(0.85) brightness(0.75);
   }
   .video-wall-item:hover img {
     filter: grayscale(0) brightness(1);
@@ -405,7 +405,7 @@ const heroStyles = `
     object-fit: cover;
     display: block;
     transition: filter 0.4s ease, transform 0.3s ease;
-    filter: grayscale(1) brightness(0.75);
+    filter: grayscale(0.85) brightness(0.75);
   }
   
   .carousel-item:hover img {
@@ -524,6 +524,68 @@ const heroStyles = `
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-5px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* ===== 移动端适配 ===== */
+  @media (max-width: 768px) {
+    /* 输入框区域 - 垂直布局 */
+    .access-code-form {
+      flex-direction: column !important;
+      width: 100%;
+      max-width: 280px;
+    }
+    .access-code-form input {
+      width: 100% !important;
+      box-sizing: border-box;
+    }
+    .access-code-form button {
+      width: 100%;
+    }
+    
+    /* 照片墙网格 - 减少列数 */
+    .video-wall-item {
+      min-width: 200px !important;
+    }
+    
+    /* 轮播图项 - 移动端尺寸 */
+    .carousel-item {
+      width: 200px !important;
+      height: 120px !important;
+    }
+    
+    /* 特色功能卡片 - 垂直布局 */
+    .feature-card {
+      flex-direction: column !important;
+      gap: 24px !important;
+      padding: 0 20px;
+    }
+    .media-container {
+      width: 100% !important;
+    }
+    .feature-text {
+      width: 100% !important;
+      padding: 0 !important;
+    }
+    
+    /* 特色功能文字区域 */
+    .feature-text h3 {
+      font-size: 28px !important;
+    }
+    .feature-text p {
+      font-size: 16px !important;
+      max-width: 100% !important;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    /* 超小屏幕适配 */
+    .carousel-item {
+      width: 160px !important;
+      height: 100px !important;
+    }
+    .feature-text h3 {
+      font-size: 24px !important;
+    }
   }
 `
 
@@ -864,14 +926,17 @@ function App() {
 
           {/* 内测码输入区域 */}
           {!isUnlocked && (
-            <div style={{
+            <div className="access-code-container" style={{
               marginTop: '32px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '12px'
+              gap: '12px',
+              width: '100%',
+              padding: '0 20px',
+              boxSizing: 'border-box'
             }}>
-              <div style={{
+              <div className="access-code-form" style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px'

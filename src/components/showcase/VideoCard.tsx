@@ -40,7 +40,7 @@ export default function VideoCard({
           src={thumbnail}
           alt={title}
           className="w-full h-full object-cover transition-all duration-300"
-          style={{ filter: isHovered ? 'grayscale(0)' : 'grayscale(1)' }}
+          style={{ filter: isHovered ? 'grayscale(0)' : 'grayscale(0.85)' }}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
         />
