@@ -540,19 +540,86 @@ function RotatingWand() {
   )
 }
 
+// SNS社交网络装饰组件 - 周期性scale动效
+function PulsingSNS() {
+  const [scale, setScale] = useState(1)
+  const phaseRef = useRef(0)
+  
+  useEffect(() => {
+    let animationId: number
+    let lastTime = performance.now()
+    
+    const animate = (currentTime: number) => {
+      const delta = currentTime - lastTime
+      lastTime = currentTime
+      // 2.5秒一个完整周期
+      phaseRef.current = (phaseRef.current + delta / 2500) % 1
+      // 使用 sin 函数实现平滑的 0.85 -> 1.15 -> 0.85 变化
+      const s = 1 + Math.sin(phaseRef.current * Math.PI * 2) * 0.15
+      setScale(s)
+      animationId = requestAnimationFrame(animate)
+    }
+    
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [])
+  
+  return (
+    <div style={{
+      position: 'absolute',
+      right: '20px',
+      top: '80px',
+      width: '80px',
+      height: '80px'
+    }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+        color: 'rgba(255, 255, 255, 0.3)'
+      }}>
+        <svg viewBox="0 0 100 100" fill="none" style={{ width: '100%', height: '100%' }}>
+          {/* 中心节点 */}
+          <circle cx="50" cy="50" r="12" fill="currentColor"/>
+          {/* 连接线 */}
+          <line x1="50" y1="50" x2="20" y2="25" stroke="currentColor" strokeWidth="2"/>
+          <line x1="50" y1="50" x2="80" y2="25" stroke="currentColor" strokeWidth="2"/>
+          <line x1="50" y1="50" x2="20" y2="75" stroke="currentColor" strokeWidth="2"/>
+          <line x1="50" y1="50" x2="80" y2="75" stroke="currentColor" strokeWidth="2"/>
+          <line x1="50" y1="50" x2="50" y2="15" stroke="currentColor" strokeWidth="2"/>
+          {/* 周围节点 */}
+          <circle cx="20" cy="25" r="8" fill="currentColor"/>
+          <circle cx="80" cy="25" r="8" fill="currentColor"/>
+          <circle cx="20" cy="75" r="8" fill="currentColor"/>
+          <circle cx="80" cy="75" r="8" fill="currentColor"/>
+          <circle cx="50" cy="15" r="8" fill="currentColor"/>
+          {/* 小装饰点 */}
+          <circle cx="35" cy="37" r="3" fill="currentColor"/>
+          <circle cx="65" cy="37" r="3" fill="currentColor"/>
+          <circle cx="35" cy="63" r="3" fill="currentColor"/>
+          <circle cx="65" cy="63" r="3" fill="currentColor"/>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 // 特色功能翻转卡片组件
 function FeatureFlipCard({ 
   image, 
   video, 
   title, 
   description,
-  label = '01'
+  label = '01',
+  decorationIcon
 }: { 
   image: string
   video: string
   title: string
   description: string
   label?: string
+  decorationIcon?: React.ReactNode
 }) {
   const [showVideo, setShowVideo] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -675,8 +742,8 @@ function FeatureFlipCard({
           </svg>
           <span>Click to explore more</span>
         </div>
-        {/* 旋转摄影机装饰 */}
-        <RotatingCamera />
+        {/* 装饰图标 - 默认使用旋转摄影机 */}
+        {decorationIcon || <RotatingCamera />}
       </div>
     </div>
   )
@@ -2170,6 +2237,18 @@ function App() {
               title="Unfold Your Full Story"
               description="Transform your vision into a complete, cinema-quality feature. No cuts, just seamless storytelling."
             />
+            
+            {/* 特色功能 3 - 社区 */}
+            <div style={{ marginTop: '120px' }}>
+              <FeatureFlipCard
+                image="/assets/images/func3.jpg"
+                video="/assets/videos/func3.mp4"
+                label="03"
+                title="Connect With Creators"
+                description="Join a vibrant community of filmmakers and storytellers. Share your work, discover inspiration, and collaborate with creators worldwide."
+                decorationIcon={<PulsingSNS />}
+              />
+            </div>
           </div>
         </section>
       </main>
