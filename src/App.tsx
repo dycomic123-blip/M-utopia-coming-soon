@@ -72,7 +72,7 @@ function getResponsiveColumns(width: number): number {
 
 // 瀑布流布局Hook
 function useMasonryLayout(
-  items: ImageItem[],
+  _items: ImageItem[],
   imageSizes: ImageSize[],
   containerRef: React.RefObject<HTMLDivElement>,
   gap: number = 16
@@ -167,11 +167,6 @@ const IMAGE_CONFIG: ImageItem[] = [
   { src: '/assets/images/31.jpg', text: 'Egypt', video: '/assets/videos/31.mp4' },
   { src: '/assets/images/32.png', text: 'Fingerprints of Kubrick', video: '/assets/videos/32.mp4' },
 ]
-
-// 辅助函数：根据图片路径获取配置
-const getImageConfig = (src: string): ImageItem => {
-  return IMAGE_CONFIG.find(item => item.src === src) || { src, text: '', video: '' }
-}
 
 // 打字机效果组件
 function TypewriterText({ text, isActive }: { text: string; isActive: boolean }) {
@@ -1676,7 +1671,7 @@ function App() {
           <div 
             className="video-grid-container" 
             ref={(el) => {
-              videoGridRef.current = el
+              (videoGridRef as React.MutableRefObject<HTMLDivElement | null>).current = el
               ;(masonryContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
             }}
             onMouseMove={(e) => {
