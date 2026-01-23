@@ -4,7 +4,7 @@
  * 层叠融合式情感视觉 + 光影效果
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { gsap } from 'gsap'
 import VideoModal from './components/showcase/VideoModal'
 
@@ -13,6 +13,124 @@ interface ImageItem {
   src: string
   text: string
   video: string
+}
+
+// 瀑布流卡片位置类型
+interface CardPosition {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+// 图片尺寸信息类型
+interface ImageSize {
+  src: string
+  width: number
+  height: number
+  aspectRatio: number
+}
+
+// 预加载图片并获取尺寸
+function preloadImages(images: ImageItem[]): Promise<ImageSize[]> {
+  return Promise.all(
+    images.map(
+      (item) =>
+        new Promise<ImageSize>((resolve) => {
+          const img = new Image()
+          img.onload = () => {
+            resolve({
+              src: item.src,
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+              aspectRatio: img.naturalWidth / img.naturalHeight,
+            })
+          }
+          img.onerror = () => {
+            // 加载失败时使用默认16:9比例
+            resolve({
+              src: item.src,
+              width: 16,
+              height: 9,
+              aspectRatio: 16 / 9,
+            })
+          }
+          img.src = item.src
+        })
+    )
+  )
+}
+
+// 获取响应式列数
+function getResponsiveColumns(width: number): number {
+  if (width >= 1400) return 5
+  if (width >= 1200) return 4
+  if (width >= 992) return 4
+  if (width >= 768) return 3
+  return 2
+}
+
+// 瀑布流布局Hook
+function useMasonryLayout(
+  items: ImageItem[],
+  imageSizes: ImageSize[],
+  containerRef: React.RefObject<HTMLDivElement>,
+  gap: number = 16
+) {
+  const [positions, setPositions] = useState<CardPosition[]>([])
+  const [containerHeight, setContainerHeight] = useState(0)
+  const [columns, setColumns] = useState(5)
+
+  const calculateLayout = useCallback(() => {
+    if (!containerRef.current || imageSizes.length === 0) return
+
+    const containerWidth = containerRef.current.offsetWidth
+    const currentColumns = getResponsiveColumns(window.innerWidth)
+    setColumns(currentColumns)
+
+    const columnWidth = (containerWidth - gap * (currentColumns - 1)) / currentColumns
+    const columnHeights = new Array(currentColumns).fill(0)
+    const newPositions: CardPosition[] = []
+
+    imageSizes.forEach((size) => {
+      // 找到最短的列
+      const minColumnIndex = columnHeights.indexOf(Math.min(...columnHeights))
+      // 根据图片宽高比计算卡片高度
+      const cardHeight = columnWidth / size.aspectRatio
+
+      newPositions.push({
+        left: minColumnIndex * (columnWidth + gap),
+        top: columnHeights[minColumnIndex],
+        width: columnWidth,
+        height: cardHeight,
+      })
+
+      // 更新该列的高度
+      columnHeights[minColumnIndex] += cardHeight + gap
+    })
+
+    setPositions(newPositions)
+    setContainerHeight(Math.max(...columnHeights) - gap) // 减去最后一个gap
+  }, [imageSizes, containerRef, gap])
+
+  // 监听窗口大小变化
+  useEffect(() => {
+    calculateLayout()
+
+    let resizeTimer: ReturnType<typeof setTimeout>
+    const handleResize = () => {
+      clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(calculateLayout, 100)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      clearTimeout(resizeTimer)
+    }
+  }, [calculateLayout])
+
+  return { positions, containerHeight, columns }
 }
 
 const IMAGE_CONFIG: ImageItem[] = [
@@ -83,44 +201,286 @@ function TypewriterText({ text, isActive }: { text: string; isActive: boolean })
   return <span>{displayText}</span>
 }
 
-// 视频墙卡片组件
-function VideoWallCard({ src, text, onClickPlay }: { src: string; text: string; onClickPlay: () => void }) {
+// 3D 视频卡片组件
+function VideoCard3D({ 
+  src, 
+  text, 
+  onClickPlay,
+  index,
+  cardRef,
+  style
+}: { 
+  src: string
+  text: string
+  onClickPlay: () => void
+  index: number
+  cardRef?: (el: HTMLDivElement | null) => void
+  style?: React.CSSProperties
+}) {
   const [isHovered, setIsHovered] = useState(false)
   
   return (
     <div 
-      className="inner video-wall-item"
+      className="video-card-3d"
+      ref={cardRef}
+      data-index={index}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClickPlay}
+      style={style}
     >
-      {src && (
-        <img
-          src={src}
-          alt="Film"
-        />
-      )}
-      {/* 黑白遮罩层 - hover 时从 100% 变到 0% */}
-      <div className="grayscale-overlay" />
-      {/* View 图标 - hover 时显示 */}
-      <div className="view-icon-overlay">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
+      <div className="card-inner">
+        {src && (
+          <img
+            src={src}
+            alt="Film"
+            loading="lazy"
+          />
+        )}
+        {/* 黑白遮罩层 */}
+        <div className="grayscale-overlay" />
+        {/* View 图标 */}
+        <div className="view-icon-overlay">
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </div>
+        {/* 文字覆盖层 */}
+        <div className="text-overlay">
+          <TypewriterText text={text} isActive={isHovered} />
+        </div>
       </div>
-      {/* 文字覆盖层 */}
-      <div className="text-overlay">
-        <TypewriterText text={text} isActive={isHovered} />
+    </div>
+  )
+}
+
+// 经典电影名言库
+const MOVIE_QUOTES = [
+  "Conflict",
+  "Emotion",
+  "Theme",
+  "Motif",
+  "Climax",
+  "Tension",
+  "Vision",
+  "Pacing",
+  "Concept",
+  "Metaphor"
+]
+
+// 浮现文字项类型
+interface QuoteItem {
+  id: number
+  text: string
+  x: number
+  y: number
+}
+
+// 单个浮动文字组件 - 使用 JS 动画（缓慢浮现 + 快速消散）
+function FloatingQuote({ quote }: { quote: QuoteItem }) {
+  const [opacity, setOpacity] = useState(0)
+  const [scale, setScale] = useState(0.8)
+  const [blur, setBlur] = useState(4)
+  
+  useEffect(() => {
+    const startTime = Date.now()
+    const totalDuration = 3400 // 总时长 3.4 秒
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      
+      if (elapsed < 2000) {
+        // 0-2秒：opacity 从 0 缓慢到 0.5，blur 从 4 到 0
+        const p = elapsed / 2000
+        setOpacity(p * 0.5)
+        setBlur(4 - p * 4)
+      } else if (elapsed < 3000) {
+        // 2-3秒：保持 opacity 0.5，blur 0
+        setOpacity(0.5)
+        setBlur(0)
+      }
+      
+      if (elapsed < 3000) {
+        // 0-3秒：scale 从 0.8 缓缓放大到 1
+        const p = elapsed / 3000
+        setScale(0.8 + p * 0.2)
+      } else if (elapsed < 3400) {
+        // 3-3.4秒：迅速放大至 2 倍，opacity 保持不变，blur 从 0 到 4
+        const p = (elapsed - 3000) / 400
+        setScale(1 + p * 1) // 1 -> 2
+        setOpacity(0.5) // 保持 0.5 不变
+        setBlur(p * 4) // 0 -> 4
+      }
+      
+      if (elapsed < totalDuration) {
+        requestAnimationFrame(animate)
+      }
+    }
+    
+    const animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [])
+  
+  return (
+    <span style={{
+      position: 'absolute',
+      left: `${quote.x}%`,
+      top: `${quote.y}%`,
+      fontSize: '24px',
+      fontWeight: 300,
+      fontStyle: 'italic',
+      color: `rgba(255, 255, 255, ${opacity})`,
+      whiteSpace: 'nowrap',
+      textShadow: '0 0 15px rgba(230, 57, 70, 0.3)',
+      transform: `scale(${scale})`,
+      transformOrigin: 'center center',
+      filter: `blur(${blur}px)`
+    }}>
+      {quote.text}
+    </span>
+  )
+}
+
+// 滚动触发的浮现文字组件
+function ScrollQuotes({ sectionRef }: { sectionRef: React.RefObject<HTMLElement> }) {
+  const [quotes, setQuotes] = useState<QuoteItem[]>([])
+  const lastScrollY = useRef(window.scrollY)
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      const section = sectionRef.current
+      if (!section) return
+      
+      const rect = section.getBoundingClientRect()
+      const isInView = rect.top < window.innerHeight && rect.bottom > 0
+      
+      if (!isInView) return
+      
+      const currentScrollY = window.scrollY
+      const scrollDiff = Math.abs(currentScrollY - lastScrollY.current)
+      
+      if (scrollDiff > 15) {
+        // 随机选择边缘位置（上、下、左、右）
+        const edge = Math.floor(Math.random() * 4)
+        let x: number, y: number
+        switch (edge) {
+          case 0: // 上边缘
+            x = Math.random() * 80 + 10  // 10%-90%
+            y = Math.random() * 10       // 0%-10%
+            break
+          case 1: // 下边缘
+            x = Math.random() * 80 + 10
+            y = 90 + Math.random() * 10  // 90%-100%
+            break
+          case 2: // 左边缘
+            x = Math.random() * 10       // 0%-10%
+            y = Math.random() * 80 + 10
+            break
+          default: // 右边缘
+            x = 75 + Math.random() * 10  // 75%-85%
+            y = Math.random() * 80 + 10
+            break
+        }
+        
+        const newQuote: QuoteItem = {
+          id: Date.now() + Math.random(),
+          text: MOVIE_QUOTES[Math.floor(Math.random() * MOVIE_QUOTES.length)],
+          x,
+          y,
+        }
+        setQuotes(prev => [...prev.slice(-4), newQuote])
+        lastScrollY.current = currentScrollY
+      }
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [sectionRef])
+  
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      setQuotes(prev => prev.filter(q => Date.now() - q.id < 3400))
+    }, 100)
+    return () => clearInterval(cleanup)
+  }, [])
+  
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      pointerEvents: 'none',
+      overflow: 'visible',
+      zIndex: 5
+    }}>
+      {quotes.map(q => (
+        <FloatingQuote key={q.id} quote={q} />
+      ))}
+    </div>
+  )
+}
+
+// 3D翻转摄影机装饰组件 - 使用 scaleX 模拟翻转
+function RotatingCamera() {
+  const [scaleX, setScaleX] = useState(1)
+  const phaseRef = useRef(0)
+  
+  useEffect(() => {
+    let animationId: number
+    let lastTime = performance.now()
+    
+    const animate = (currentTime: number) => {
+      const delta = currentTime - lastTime
+      lastTime = currentTime
+      // 3秒一个完整周期
+      phaseRef.current = (phaseRef.current + delta / 3000) % 1
+      // 使用 cos 函数实现平滑的 1 → 0 → 1 变化
+      const scale = Math.abs(Math.cos(phaseRef.current * Math.PI))
+      setScaleX(scale)
+      animationId = requestAnimationFrame(animate)
+    }
+    
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [])
+  
+  return (
+    <div style={{
+      position: 'absolute',
+      right: '20px',
+      top: '40px',
+      width: '80px',
+      height: '80px'
+    }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        transform: `scaleX(${scaleX})`,
+        color: 'rgba(255, 255, 255, 0.3)'
+      }}>
+        <svg viewBox="0 0 100 100" fill="none" style={{ width: '100%', height: '100%' }}>
+          <rect x="15" y="32" width="45" height="36" rx="4" fill="currentColor"/>
+          <polygon points="60,36 80,22 80,78 60,64" fill="currentColor"/>
+          <circle cx="35" cy="50" r="14" fill="none" stroke="currentColor" strokeWidth="4"/>
+          <circle cx="35" cy="50" r="6" fill="currentColor"/>
+          <circle cx="22" cy="26" r="9" fill="currentColor"/>
+          <circle cx="22" cy="26" r="4" fill="#0A0A0A"/>
+          <circle cx="50" cy="26" r="9" fill="currentColor"/>
+          <circle cx="50" cy="26" r="4" fill="#0A0A0A"/>
+          <rect x="28" y="68" width="16" height="8" rx="2" fill="currentColor"/>
+        </svg>
       </div>
     </div>
   )
@@ -261,6 +621,8 @@ function FeatureFlipCard({
           </svg>
           <span>Click to explore more</span>
         </div>
+        {/* 旋转摄影机装饰 */}
+        <RotatingCamera />
       </div>
     </div>
   )
@@ -354,63 +716,206 @@ const heroStyles = `
     text-align: left;
   }
   
-  /* ===== 视频墙传送带动画 - 无缝循环 ===== */
-  @keyframes slideRight {
-    0% { transform: translateX(-50%); }
-    100% { transform: translateX(0%); }
+  /* ===== 3D 透视视频网格样式 ===== */
+  
+  /* 3D 容器 - 全宽展示 */
+  .video-grid-container {
+    width: 100%;
+    max-width: none;
+    margin: 0 auto;
+    padding: 20px 24px 60px 24px;
+    perspective: 1200px;
+    perspective-origin: center center;
   }
   
-  @keyframes slideLeft {
-    0% { transform: translateX(0%); }
-    100% { transform: translateX(-50%); }
-  }
-  
-  .row1-track {
-    display: flex !important;
-    width: 200% !important;
-    animation: slideRight 50s linear infinite !important;
-    will-change: transform;
-  }
-  
-  .row2-track {
-    display: flex !important;
-    width: 200% !important;
-    animation: slideLeft 50s linear infinite !important;
-    will-change: transform;
-  }
-  
-  /* hover整个视频墙区域时，两行都暂停 */
-  .video-wall-section:hover .row1-track,
-  .video-wall-section:hover .row2-track {
-    animation-play-state: paused !important;
-  }
-  
-  .carousel-item {
-    flex: 0 0 calc(100% / 12) !important;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
-  .carousel-item .inner {
-    aspect-ratio: 16/9;
-    overflow: hidden;
-    border-radius: 4px;
-    cursor: pointer;
+  /* 3D 网格 - 瀑布流使用相对定位作为容器 */
+  .video-grid-3d {
     position: relative;
+    width: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.4s ease-out;
   }
   
-  .carousel-item img {
+  /* 3D 卡片 - 使用绝对定位 */
+  .video-card-3d {
+    position: absolute;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transform: translateZ(0);
+    opacity: 0;
+    transition: transform 0.35s ease, box-shadow 0.35s ease, opacity 0.5s ease;
+  }
+  
+  .video-card-3d .card-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    transition: box-shadow 0.35s ease;
+  }
+  
+  .video-card-3d:hover {
+    transform: translateZ(40px) scale(1.03);
+    z-index: 10;
+  }
+  
+  .video-card-3d:hover .card-inner {
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  }
+  
+  .video-card-3d img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: filter 0.4s ease, transform 0.3s ease;
-    filter: grayscale(0.85) brightness(0.75);
+    transition: filter 0.4s ease, transform 0.4s ease;
+    filter: grayscale(0.8) brightness(0.75);
   }
   
-  .carousel-item:hover img {
+  .video-card-3d:hover img {
     filter: grayscale(0) brightness(1);
     transform: scale(1.05);
+  }
+  
+  /* 3D 卡片遮罩层 */
+  .video-card-3d .grayscale-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.15);
+    opacity: 1;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 2;
+  }
+  
+  .video-card-3d:hover .grayscale-overlay {
+    opacity: 0;
+  }
+  
+  /* 3D 卡片 View 图标 */
+  .video-card-3d .view-icon-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 6;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+  }
+  
+  .video-card-3d:hover .view-icon-overlay {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  
+  .video-card-3d .view-icon-overlay svg {
+    color: #FFFFFF;
+    filter: drop-shadow(0 2px 10px rgba(0,0,0,0.7));
+  }
+  
+  /* 3D 卡片文字覆盖层 */
+  .video-card-3d .text-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 5;
+  }
+  
+  .video-card-3d:hover .text-overlay {
+    opacity: 1;
+  }
+  
+  .video-card-3d .text-overlay span {
+    color: #FFFFFF;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+    word-break: break-word;
+  }
+  
+  /* ===== 3D 网格响应式 ===== */
+  
+  /* 大屏幕 1200-1399px */
+  @media (max-width: 1399px) {
+    .video-grid-container {
+      padding: 16px 20px 50px 20px;
+    }
+  }
+  
+  /* 中等屏幕 992-1199px */
+  @media (max-width: 1199px) {
+    .video-card-3d .text-overlay span {
+      font-size: 24px;
+    }
+  }
+  
+  /* 平板 768-991px */
+  @media (max-width: 991px) {
+    .video-grid-container {
+      padding: 12px 16px 40px 16px;
+      perspective: 1000px;
+    }
+    .video-card-3d .text-overlay span {
+      font-size: 20px;
+    }
+    .video-card-3d:hover {
+      transform: translateZ(30px) scale(1.02);
+    }
+  }
+  
+  /* 小平板/大手机 576-767px */
+  @media (max-width: 767px) {
+    .video-grid-container {
+      padding: 10px 12px 30px 12px;
+      perspective: none; /* 移动端禁用透视 */
+    }
+    .video-grid-3d {
+      transform: none !important; /* 禁用鼠标跟随倾斜 */
+    }
+    .video-card-3d:hover {
+      transform: scale(1.02);
+    }
+    .video-card-3d .text-overlay span {
+      font-size: 18px;
+    }
+  }
+  
+  /* 手机 < 576px */
+  @media (max-width: 575px) {
+    .video-grid-container {
+      padding: 8px 8px 24px 8px;
+    }
+    .video-card-3d .card-inner {
+      border-radius: 6px;
+    }
+    .video-card-3d .text-overlay {
+      padding: 10px;
+    }
+    .video-card-3d .text-overlay span {
+      font-size: 16px;
+    }
+    .video-card-3d:active {
+      transform: scale(0.98);
+    }
   }
   
   /* ===== 特色功能翻转卡片样式 ===== */
@@ -420,13 +925,13 @@ const heroStyles = `
   
   .feature-card {
     display: flex;
-    gap: 80px;
+    gap: 60px;
     align-items: center;
   }
   
   .media-container {
     cursor: pointer;
-    width: 55%;
+    width: 60%;
     flex-shrink: 0;
     display: flex;
     justify-content: center;
@@ -456,6 +961,7 @@ const heroStyles = `
   .feature-text {
     flex: 1;
     padding: 24px 0;
+    position: relative;
   }
   
   .feature-text .feature-label {
@@ -469,7 +975,7 @@ const heroStyles = `
   }
   
   .feature-text h3 {
-    font-size: 48px;
+    font-size: 56px;
     font-weight: 700;
     color: #FFFFFF;
     margin: 0 0 24px 0;
@@ -478,11 +984,11 @@ const heroStyles = `
   }
   
   .feature-text p {
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1.8;
     color: rgba(255, 255, 255, 0.6);
     margin: 0 0 32px 0;
-    max-width: 480px;
+    max-width: 520px;
   }
   
   .feature-text .click-hint {
@@ -497,6 +1003,42 @@ const heroStyles = `
     width: 16px;
     height: 16px;
     stroke: rgba(255, 255, 255, 0.4);
+  }
+  
+  /* ===== 旋转摄影机装饰 ===== */
+  .rotating-camera {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100px;
+    height: 100px;
+    color: rgba(255, 255, 255, 0.15);
+  }
+  
+  .rotating-camera svg {
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* ===== 滚动触发浮现文字 ===== */
+  .scroll-quotes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 5;
+  }
+  
+  .floating-quote {
+    position: absolute;
+    font-size: 28px;
+    font-weight: 300;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    text-shadow: 0 0 20px rgba(230, 57, 70, 0.3);
+    letter-spacing: 0.02em;
   }
   
   /* ===== 锁定遮罩层样式 ===== */
@@ -575,6 +1117,16 @@ const heroStyles = `
       font-size: 16px !important;
       max-width: 100% !important;
     }
+    
+    /* 旋转摄影机 - 移动端隐藏或缩小 */
+    .rotating-camera {
+      display: none;
+    }
+    
+    /* 浮现文字 - 移动端缩小 */
+    .floating-quote {
+      font-size: 18px !important;
+    }
   }
   
   @media (max-width: 480px) {
@@ -585,6 +1137,11 @@ const heroStyles = `
     }
     .feature-text h3 {
       font-size: 24px !important;
+    }
+    
+    /* 浮现文字 - 超小屏幕 */
+    .floating-quote {
+      font-size: 14px !important;
     }
   }
 `
@@ -605,20 +1162,32 @@ function App() {
   const contentRef = useRef<HTMLElement>(null)
   const scrollHintRef = useRef<HTMLDivElement>(null)
 
-  // ===== 视频墙传送带状态 - 简单分组循环设计 =====
-  // 将所有图片分成两组，每组内部独立循环滚动
-  const totalImages = IMAGE_CONFIG.length
-  const row1Count = Math.floor(totalImages / 2)  // 16
-  const row2Count = Math.ceil(totalImages / 2)   // 16
+  // ===== 3D 视频墙 =====
+  const videoGridRef = useRef<HTMLDivElement>(null)
+  const masonryContainerRef = useRef<HTMLDivElement>(null)
+  const videoCardsRef = useRef<(HTMLDivElement | null)[]>([])
+  const [gridAnimated, setGridAnimated] = useState(false)
   
-  // 第一组：索引 0 到 row1Count-1
-  const row1Images = IMAGE_CONFIG.slice(0, row1Count).map(item => item.src)
-  // 第二组：索引 row1Count 到末尾
-  const row2Images = IMAGE_CONFIG.slice(row1Count).map(item => item.src)
+  // ===== 特色功能区域 =====
+  const featureSectionRef = useRef<HTMLElement>(null)
   
-  // 为了实现无缝循环，每组图片复制一份拼接
-  const row1LoopImages = [...row1Images, ...row1Images]
-  const row2LoopImages = [...row2Images, ...row2Images]
+  // ===== 瀑布流布局 =====
+  const [imageSizes, setImageSizes] = useState<ImageSize[]>([])
+  const [imagesLoaded, setImagesLoaded] = useState(false)
+  const { positions, containerHeight } = useMasonryLayout(
+    IMAGE_CONFIG,
+    imageSizes,
+    masonryContainerRef,
+    16 // gap
+  )
+  
+  // 预加载图片尺寸
+  useEffect(() => {
+    preloadImages(IMAGE_CONFIG).then((sizes) => {
+      setImageSizes(sizes)
+      setImagesLoaded(true)
+    })
+  }, [])
 
   useEffect(() => {
     let tl: gsap.core.Timeline | null = null
@@ -720,6 +1289,54 @@ function App() {
       if (tl) tl.kill()
     }
   }, [])
+
+  // ===== 3D 视频网格入场动画 =====
+  useEffect(() => {
+    // 等待图片加载完成且位置计算好
+    if (gridAnimated || !imagesLoaded || positions.length === 0) return
+    
+    const cards = videoCardsRef.current.filter(Boolean) as HTMLDivElement[]
+    if (cards.length === 0) return
+    
+    const container = videoGridRef.current
+    if (!container) return
+    
+    // 先设置初始状态
+    cards.forEach(card => {
+      gsap.set(card, { opacity: 0, y: 40 })
+    })
+    
+    // 使用 IntersectionObserver 检测网格区域进入视口
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !gridAnimated) {
+            setGridAnimated(true)
+            
+            // 入场动画：从底部依次淡入上浮
+            gsap.to(cards, {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              stagger: {
+                amount: 0.8,
+                grid: 'auto',
+                from: 'start'
+              },
+              ease: 'back.out(1.2)'
+            })
+            
+            observer.disconnect()
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+    
+    observer.observe(container)
+    
+    return () => observer.disconnect()
+  }, [gridAnimated, imagesLoaded, positions.length])
 
   // ===== 内测码验证函数 =====
   const handleJoin = () => {
@@ -1043,9 +1660,9 @@ function App() {
 
       {/* Main Content */}
       <main ref={contentRef}>
-        {/* ========== 视频墙 - 传送带循环滚动 ========== */}
+        {/* ========== 3D 透视视频网格 ========== */}
         <section 
-          className={`video-wall-section${!isUnlocked ? ' locked' : ''}`}
+          className={`video-wall-section video-grid-section${!isUnlocked ? ' locked' : ''}`}
           style={{ 
             padding: '0',
             width: '100vw',
@@ -1055,67 +1672,76 @@ function App() {
             position: 'relative'
           }}
         >
-          {/* 第一行 - 向右滚动，内部循环 */}
-          <div style={{ overflow: 'hidden', '--items-per-group': row1Count } as React.CSSProperties}>
-            <div className="row1-track">
-              {row1LoopImages.map((src, i) => {
-                const config = getImageConfig(src)
-                return (
-                  <div key={`row1-${i}-${src}`} className="carousel-item">
-                    <VideoWallCard 
-                      src={config.src} 
-                      text={config.text} 
-                      onClickPlay={() => setSelectedVideo(config.video)}
-                    />
-                  </div>
-                )
-              })}
+          {/* 3D 网格容器 */}
+          <div 
+            className="video-grid-container" 
+            ref={(el) => {
+              videoGridRef.current = el
+              ;(masonryContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+            }}
+            onMouseMove={(e) => {
+              // 仅桌面端启用鼠标跟随倾斜
+              if (window.innerWidth <= 767) return
+              const rect = e.currentTarget.getBoundingClientRect()
+              const centerX = rect.width / 2
+              const centerY = rect.height / 2
+              const mouseX = e.clientX - rect.left
+              const mouseY = e.clientY - rect.top
+              
+              // 计算倾斜角度 (最大 ±3 度)
+              const rotateY = ((mouseX - centerX) / centerX) * 3
+              const rotateX = ((centerY - mouseY) / centerY) * 3
+              
+              const grid = e.currentTarget.querySelector('.video-grid-3d') as HTMLElement
+              if (grid) {
+                grid.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
+              }
+            }}
+            onMouseLeave={(e) => {
+              const grid = e.currentTarget.querySelector('.video-grid-3d') as HTMLElement
+              if (grid) {
+                grid.style.transform = 'rotateX(0deg) rotateY(0deg)'
+              }
+            }}
+          >
+            <div 
+              className="video-grid-3d"
+              style={{ height: containerHeight > 0 ? containerHeight : 'auto' }}
+            >
+              {imagesLoaded && positions.length > 0 ? (
+                IMAGE_CONFIG.map((item, index) => (
+                  <VideoCard3D
+                    key={`card-${index}`}
+                    src={item.src}
+                    text={item.text}
+                    onClickPlay={() => setSelectedVideo(item.video)}
+                    index={index}
+                    cardRef={(el) => { videoCardsRef.current[index] = el }}
+                    style={{
+                      position: 'absolute',
+                      left: positions[index]?.left ?? 0,
+                      top: positions[index]?.top ?? 0,
+                      width: positions[index]?.width ?? 'auto',
+                      height: positions[index]?.height ?? 'auto',
+                    }}
+                  />
+                ))
+              ) : (
+                // 加载中占位
+                <div style={{ 
+                  height: '400px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: 'rgba(255,255,255,0.5)'
+                }}>
+                  Loading...
+                </div>
+              )}
             </div>
           </div>
-          
-          {/* 第二行 - 向左滚动，内部循环 */}
-          <div style={{ overflow: 'hidden', '--items-per-group': row2Count } as React.CSSProperties}>
-            <div className="row2-track">
-              {row2LoopImages.map((src, i) => {
-                const config = getImageConfig(src)
-                return (
-                  <div key={`row2-${i}-${src}`} className="carousel-item">
-                    <VideoWallCard 
-                      src={config.src} 
-                      text={config.text} 
-                      onClickPlay={() => setSelectedVideo(config.video)}
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          
-          {/* 左侧渐变遮罩 */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '240px',
-            height: '100%',
-            background: 'linear-gradient(to right, #0A0A0A 0%, transparent 100%)',
-            pointerEvents: 'none',
-            zIndex: 10
-          }} />
 
-          {/* 右侧渐变遮罩 */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: '240px',
-            height: '100%',
-            background: 'linear-gradient(to left, #0A0A0A 0%, transparent 100%)',
-            pointerEvents: 'none',
-            zIndex: 10
-          }} />
-
-          {/* 底部渐变遮罩 */}
+          {/* 底部渐变遮罩 - 与下方区域融合 */}
           <div style={{
             position: 'absolute',
             bottom: 0,
@@ -1123,7 +1749,8 @@ function App() {
             right: 0,
             height: '80px',
             background: 'linear-gradient(to top, #0A0A0A 0%, transparent 100%)',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            zIndex: 10
           }} />
 
           {/* 锁定遮罩层 */}
@@ -1159,16 +1786,20 @@ function App() {
 
         {/* ========== 特色功能区域 ========== */}
         <section 
+          ref={featureSectionRef}
           className="feature-section"
           style={{
             background: '#0A0A0A',
             width: '100vw',
             marginLeft: 'calc(-50vw + 50%)',
-            padding: '120px 0',
+            padding: '60px 0 120px 0',
             position: 'relative',
             overflow: 'hidden'
           }}
         >
+          {/* 滚动触发的浮现文字 */}
+          <ScrollQuotes sectionRef={featureSectionRef} />
+          
           {/* 氛围光点 */}
           <div style={{
             position: 'absolute',
@@ -1195,22 +1826,10 @@ function App() {
             zIndex: 1
           }} />
 
-          {/* 顶部渐变过渡 */}
           <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '100px',
-            background: 'linear-gradient(to bottom, #0A0A0A 0%, transparent 100%)',
-            pointerEvents: 'none',
-            zIndex: 2
-          }} />
-
-          <div style={{
-            maxWidth: '1400px',
+            maxWidth: '1600px',
             margin: '0 auto',
-            padding: '0 64px',
+            padding: '0 48px',
             position: 'relative',
             zIndex: 3
           }}>
