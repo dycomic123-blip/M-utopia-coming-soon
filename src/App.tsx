@@ -365,25 +365,25 @@ function ScrollQuotes({ sectionRef }: { sectionRef: React.RefObject<HTMLElement>
       const scrollDiff = Math.abs(currentScrollY - lastScrollY.current)
       
       if (scrollDiff > 15) {
-        // 随机选择边缘位置（上、下、左、右）
+        // 随机选择边缘位置（上、下、左、右）- 限定在四周窄边区域，避免与主体冲突
         const edge = Math.floor(Math.random() * 4)
         let x: number, y: number
         switch (edge) {
           case 0: // 上边缘
-            x = Math.random() * 80 + 10  // 10%-90%
-            y = Math.random() * 10       // 0%-10%
+            x = Math.random() * 60 + 5   // 5%-65%（左侧偏移，避免右侧溢出）
+            y = Math.random() * 8        // 0%-8%
             break
           case 1: // 下边缘
-            x = Math.random() * 80 + 10
-            y = 90 + Math.random() * 10  // 90%-100%
+            x = Math.random() * 60 + 5   // 5%-65%
+            y = 92 + Math.random() * 6   // 92%-98%
             break
           case 2: // 左边缘
-            x = Math.random() * 10       // 0%-10%
-            y = Math.random() * 80 + 10
+            x = Math.random() * 6        // 0%-6%（更窄的边缘）
+            y = Math.random() * 60 + 20  // 20%-80%
             break
           default: // 右边缘
-            x = 75 + Math.random() * 10  // 75%-85%
-            y = Math.random() * 80 + 10
+            x = 88 + Math.random() * 6   // 88%-94%（更靠右但不超出）
+            y = Math.random() * 60 + 20  // 20%-80%
             break
         }
         
@@ -455,7 +455,7 @@ function RotatingCamera() {
     <div style={{
       position: 'absolute',
       right: '20px',
-      top: '40px',
+      top: '80px',
       width: '80px',
       height: '80px'
     }}>
@@ -475,6 +475,65 @@ function RotatingCamera() {
           <circle cx="50" cy="26" r="9" fill="currentColor"/>
           <circle cx="50" cy="26" r="4" fill="#0A0A0A"/>
           <rect x="28" y="68" width="16" height="8" rx="2" fill="currentColor"/>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+// 魔术棒装饰组件 - 以底部为锚点做角度摇摆
+function RotatingWand() {
+  const [angle, setAngle] = useState(0)
+  const phaseRef = useRef(0)
+  
+  useEffect(() => {
+    let animationId: number
+    let lastTime = performance.now()
+    
+    const animate = (currentTime: number) => {
+      const delta = currentTime - lastTime
+      lastTime = currentTime
+      // 2秒一个完整周期
+      phaseRef.current = (phaseRef.current + delta / 2000) % 1
+      // 使用 sin 函数实现平滑的 -10° → 10° → -10° 变化
+      const rotation = Math.sin(phaseRef.current * Math.PI * 2) * 10
+      setAngle(rotation)
+      animationId = requestAnimationFrame(animate)
+    }
+    
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [])
+  
+  return (
+    <div style={{
+      width: '60px',
+      height: '60px',
+      flexShrink: 0,
+      marginTop: '-15px'
+    }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        transform: `rotate(${angle}deg)`,
+        transformOrigin: 'bottom center',
+        color: 'rgba(255, 255, 255, 0.3)'
+      }}>
+        <svg viewBox="0 0 100 100" fill="none" style={{ width: '100%', height: '100%' }}>
+          {/* 魔术棒主体 */}
+          <rect x="20" y="60" width="60" height="12" rx="2" fill="currentColor" transform="rotate(-45 50 66)"/>
+          {/* 魔术棒顶端 */}
+          <rect x="65" y="15" width="18" height="25" rx="3" fill="currentColor" transform="rotate(-45 74 27)"/>
+          {/* 星星装饰 - 大星星 */}
+          <polygon points="25,20 27,26 33,26 28,30 30,36 25,32 20,36 22,30 17,26 23,26" fill="currentColor"/>
+          {/* 星星装饰 - 小星星1 */}
+          <polygon points="15,45 16,48 19,48 17,50 18,53 15,51 12,53 13,50 11,48 14,48" fill="currentColor"/>
+          {/* 星星装饰 - 小星星2 */}
+          <polygon points="40,15 41,17 43,17 42,19 42,21 40,20 38,21 38,19 37,17 39,17" fill="currentColor"/>
+          {/* 闪光效果 */}
+          <circle cx="70" cy="25" r="3" fill="currentColor"/>
+          <circle cx="80" cy="35" r="2" fill="currentColor"/>
+          <circle cx="75" cy="18" r="2" fill="currentColor"/>
         </svg>
       </div>
     </div>
@@ -618,6 +677,158 @@ function FeatureFlipCard({
         </div>
         {/* 旋转摄影机装饰 */}
         <RotatingCamera />
+      </div>
+    </div>
+  )
+}
+
+// 特色功能翻转卡片组件 - 反向布局（右图左文字）
+function FeatureFlipCardReverse({ 
+  image, 
+  flipImage, 
+  title, 
+  description,
+  label = '02'
+}: { 
+  image: string
+  flipImage: string
+  title: string
+  description: string
+  label?: string
+}) {
+  const [showFlipped, setShowFlipped] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const mediaRef = useRef<HTMLDivElement>(null)
+  const timerRef = useRef<number | null>(null)
+  
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+    }
+  }, [])
+  
+  const handleClick = () => {
+    if (isAnimating || showFlipped) return
+    setIsAnimating(true)
+    
+    // 使用 GSAP 实现翻转动画
+    const tl = gsap.timeline()
+    
+    // 第一阶段：图片收缩
+    tl.to(mediaRef.current, {
+      scaleX: 0,
+      duration: 0.2,
+      ease: 'power2.in'
+    })
+    // 第二阶段：图片展开到90%时切换图片
+    .to(mediaRef.current, {
+      scaleX: 0.9,
+      duration: 0.16,
+      ease: 'power2.out',
+      onComplete: () => {
+        // 在90%时切换到翻转图片
+        setShowFlipped(true)
+      }
+    })
+    // 第三阶段：继续展开到100%
+    .to(mediaRef.current, {
+      scaleX: 1,
+      duration: 0.04,
+      ease: 'power2.out',
+      onComplete: () => {
+        setIsAnimating(false)
+        
+        // 3秒后自动翻转回原图
+        timerRef.current = window.setTimeout(() => {
+          handleFlipBack()
+        }, 3000)
+      }
+    })
+  }
+  
+  const handleFlipBack = () => {
+    if (isAnimating) return
+    setIsAnimating(true)
+    
+    const tl = gsap.timeline()
+    
+    // 图片收缩
+    tl.to(mediaRef.current, {
+      scaleX: 0,
+      duration: 0.2,
+      ease: 'power2.in'
+    })
+    // 图片展开到90%时切换图片
+    .to(mediaRef.current, {
+      scaleX: 0.9,
+      duration: 0.16,
+      ease: 'power2.out',
+      onComplete: () => {
+        // 在90%时切换回原图
+        setShowFlipped(false)
+      }
+    })
+    // 继续展开到100%
+    .to(mediaRef.current, {
+      scaleX: 1,
+      duration: 0.04,
+      ease: 'power2.out',
+      onComplete: () => {
+        setIsAnimating(false)
+      }
+    })
+  }
+  
+  return (
+    <div className="feature-card-reverse">
+      {/* 左侧：文字说明 */}
+      <div className="feature-text-left">
+        <span className="feature-label">{label}</span>
+        <div className="title-with-icon">
+          <RotatingWand />
+          <h3>{title}</h3>
+        </div>
+        <p>{description}</p>
+        <div className="click-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+          </svg>
+          <span>Click to explore more</span>
+        </div>
+      </div>
+      {/* 右侧：媒体区域 */}
+      <div className="media-container-right" onClick={handleClick}>
+        <div ref={mediaRef} className="media-inner" style={{ position: 'relative' }}>
+          {/* 原始图片 */}
+          <img 
+            src={image} 
+            alt={title}
+            style={{
+              opacity: showFlipped ? 0 : 1,
+              position: showFlipped ? 'absolute' : 'relative',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: 'auto'
+            }}
+          />
+          {/* 翻转后的图片 */}
+          <img 
+            src={flipImage} 
+            alt={`${title} - flipped`}
+            style={{
+              opacity: showFlipped ? 1 : 0,
+              position: showFlipped ? 'relative' : 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: 'auto'
+            }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -1016,6 +1227,84 @@ const heroStyles = `
     height: 100%;
   }
   
+  /* ===== 特色功能翻转卡片 - 反向布局 ===== */
+  .feature-card-reverse {
+    display: flex;
+    flex-direction: row;
+    gap: 60px;
+    align-items: center;
+    margin-top: 120px;
+  }
+  
+  .media-container-right {
+    cursor: pointer;
+    width: 60%;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .feature-text-left {
+    flex: 1;
+    padding: 24px 0;
+    position: relative;
+  }
+  
+  .feature-text-left .feature-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: #E63946;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    margin-left: 110px;
+    display: block;
+  }
+  
+  .feature-text-left h3 {
+    font-size: 56px;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0 0 24px 0;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  
+  .feature-text-left p {
+    font-size: 20px;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 32px 0;
+    margin-left: 110px;
+    max-width: 520px;
+  }
+  
+  .feature-text-left .click-hint {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 110px;
+  }
+  
+  .feature-text-left .click-hint svg {
+    width: 16px;
+    height: 16px;
+    stroke: rgba(255, 255, 255, 0.4);
+  }
+  
+  .feature-text-left .title-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 50px;
+  }
+  
+  .feature-text-left .title-with-icon h3 {
+    margin: 0 0 24px 0;
+  }
+  
   /* ===== 滚动触发浮现文字 ===== */
   .scroll-quotes {
     position: absolute;
@@ -1118,6 +1407,28 @@ const heroStyles = `
       display: none;
     }
     
+    /* 反向布局卡片 - 垂直布局 */
+    .feature-card-reverse {
+      flex-direction: column !important;
+      gap: 24px !important;
+      padding: 0 20px;
+      margin-top: 60px !important;
+    }
+    .media-container-right {
+      width: 100% !important;
+    }
+    .feature-text-left {
+      width: 100% !important;
+      padding: 0 !important;
+    }
+    .feature-text-left h3 {
+      font-size: 28px !important;
+    }
+    .feature-text-left p {
+      font-size: 16px !important;
+      max-width: 100% !important;
+    }
+    
     /* 浮现文字 - 移动端缩小 */
     .floating-quote {
       font-size: 18px !important;
@@ -1131,6 +1442,9 @@ const heroStyles = `
       height: 100px !important;
     }
     .feature-text h3 {
+      font-size: 24px !important;
+    }
+    .feature-text-left h3 {
       font-size: 24px !important;
     }
     
@@ -1843,9 +2157,18 @@ function App() {
             <FeatureFlipCard
               image="/assets/images/func1.jpg"
               video="/assets/videos/func1.mp4"
-              label=""
+              label="01"
               title="Step Into Your Imagination"
               description="Transform your creative vision into a fully explorable, interactive environment."
+            />
+            
+            {/* 特色功能 2 - 反向翻转卡片 */}
+            <FeatureFlipCardReverse
+              image="/assets/images/func2.png"
+              flipImage="/assets/images/func2-flip.jpg"
+              label="02"
+              title="Unfold Your Full Story"
+              description="Transform your vision into a complete, cinema-quality feature. No cuts, just seamless storytelling."
             />
           </div>
         </section>
