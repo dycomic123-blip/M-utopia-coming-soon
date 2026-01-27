@@ -616,7 +616,7 @@ function FeatureFlipCard({
 }: { 
   image: string
   video: string
-  title: string
+  title: React.ReactNode
   description: string
   label?: string
   decorationIcon?: React.ReactNode
@@ -699,7 +699,7 @@ function FeatureFlipCard({
           {/* 图片始终存在，通过 opacity 控制可见性 */}
           <img 
             src={image} 
-            alt={title}
+            alt="Feature preview"
             style={{
               opacity: showVideo ? 0 : 1,
               position: showVideo ? 'absolute' : 'relative',
@@ -2225,7 +2225,7 @@ function App() {
               image="/assets/images/func1.jpg"
               video="/assets/videos/func1.mp4"
               label="01"
-              title="Step Into Your Movie World"
+              title={<>Step Into Your<br />Movie World</>}
               description="Transform your creative vision into a fully explorable, interactive environment."
             />
             
