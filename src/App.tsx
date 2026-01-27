@@ -2225,7 +2225,7 @@ function App() {
               image="/assets/images/func1.jpg"
               video="/assets/videos/func1.mp4"
               label="01"
-              title="Step Into Your Imagination"
+              title="Step Into Your Movie World"
               description="Transform your creative vision into a fully explorable, interactive environment."
             />
             
